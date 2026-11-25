@@ -26,7 +26,10 @@ class _RState extends State<ReportTab> {
     double l = 0, a = 0, p = 0, b = 0;
     final r = <List<String>>[];
     for (final x in bills) {
-      l += x['total_litres']; a += x['total_amount']; p += x['paid_amount']; b += x['balance'];
+      l += (x['total_litres'] as num).toDouble();
+      a += (x['total_amount'] as num).toDouble();
+      p += (x['paid_amount'] as num).toDouble();
+      b += (x['balance'] as num).toDouble();
       r.add([names[x['customer_id']] ?? '-', '${x['days']}', '${x['total_litres']}', '₹${x['total_amount']}', '₹${x['paid_amount']}', '₹${x['balance']}']);
     }
     r.add(['Total', '', '$l', '₹$a', '₹$p', '₹$b']);
