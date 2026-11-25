@@ -1,4 +1,3 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import '../router.dart';
 
@@ -10,24 +9,17 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginState extends State<LoginScreen> {
   final a = TextEditingController(), b = TextEditingController();
-  bool admin = false, otpSent = false, busy = false;
-
-  void msg(String s) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s)));
+  bool admin = false, busy = false;
 
   Future<void> go() async {
     setState(() => busy = true);
     try {
-      if (admin) {
-        await db.auth.signInWithPassword(email: a.text.trim(), password: b.text);
-      } else if (!otpSent) {
-        if (!RegExp(r'^\d{10}$').hasMatch(a.text.trim())) throw 'Enter a 10-digit phone number';
-        await db.auth.signInWithOtp(phone: '+91${a.text.trim()}');
-        setState(() => otpSent = true);
-      } else {
-        await db.auth.verifyOTP(phone: '+91${a.text.trim()}', token: b.text.trim(), type: OtpType.sms);
-      }
+      final id = a.text.trim();
+      if (!admin && !RegExp(r'^\d{10}$').hasMatch(id)) throw 'Enter a 10-digit phone number';
+      await db.auth.signInWithPassword(
+          email: admin ? id : '$id@samarthdairy.app', password: b.text);
     } catch (e) {
-      msg('$e');
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     }
     if (mounted) setState(() => busy = false);
   }
@@ -42,18 +34,17 @@ class _LoginState extends State<LoginScreen> {
             SegmentedButton<bool>(
               segments: const [ButtonSegment(value: false, label: Text('Customer')), ButtonSegment(value: true, label: Text('Admin'))],
               selected: {admin},
-              onSelectionChanged: (s) => setState(() { admin = s.first; otpSent = false; a.clear(); b.clear(); }),
+              onSelectionChanged: (s) => setState(() { admin = s.first; a.clear(); b.clear(); }),
             ),
             const SizedBox(height: 16),
             TextField(controller: a, keyboardType: admin ? TextInputType.emailAddress : TextInputType.phone,
                 decoration: InputDecoration(labelText: admin ? 'Email' : 'Phone number', border: const OutlineInputBorder())),
-            if (admin || otpSent) ...[
-              const SizedBox(height: 12),
-              TextField(controller: b, obscureText: admin,
-                  decoration: InputDecoration(labelText: admin ? 'Password' : 'OTP', border: const OutlineInputBorder())),
-            ],
+            const SizedBox(height: 12),
+            TextField(controller: b, obscureText: true,
+                keyboardType: admin ? TextInputType.visiblePassword : TextInputType.number,
+                decoration: InputDecoration(labelText: admin ? 'Password' : '6-digit PIN', border: const OutlineInputBorder())),
             const SizedBox(height: 16),
-            FilledButton(onPressed: busy ? null : go, child: Text(admin ? 'Login' : otpSent ? 'Verify OTP' : 'Send OTP')),
+            FilledButton(onPressed: busy ? null : go, child: const Text('Login')),
           ]),
         ),
       );
