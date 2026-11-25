@@ -15,22 +15,37 @@ class _FState extends State<CustomerForm> {
   late final addr = TextEditingController(text: widget.c?['address']);
   late final qty = TextEditingController(text: '${widget.c?['default_qty_litre'] ?? 1}');
   late final rate = TextEditingController(text: '${widget.c?['rate_per_litre'] ?? 60}');
+  final pin = TextEditingController();
+
+  void msg(String s) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s)));
 
   Future<void> save() async {
     if (name.text.trim().isEmpty || !RegExp(r'^\d{10}$').hasMatch(phone.text.trim())) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter name and a 10-digit phone')));
-      return;
+      return msg('Enter name and a 10-digit phone');
     }
+    if (pin.text.isNotEmpty && !RegExp(r'^\d{6}$').hasMatch(pin.text)) return msg('PIN must be 6 digits');
+    final phoneChanged = widget.c != null && widget.c!['phone'] != phone.text.trim();
+    if ((widget.c == null || phoneChanged) && pin.text.isEmpty) return msg('Set a 6-digit PIN for login');
+
     final row = {
       'name': name.text.trim(), 'phone': phone.text.trim(), 'address': addr.text.trim(),
       'default_qty_litre': double.tryParse(qty.text) ?? 1, 'rate_per_litre': double.tryParse(rate.text) ?? 60,
     };
     try {
-      if (widget.c == null) { await db.from('customers').insert(row); }
-      else { await db.from('customers').update(row).eq('id', widget.c!['id']); }
+      String id;
+      if (widget.c == null) {
+        final r = await db.from('customers').insert(row).select().single();
+        id = r['id'] as String;
+      } else {
+        await db.from('customers').update(row).eq('id', widget.c!['id']);
+        id = widget.c!['id'] as String;
+      }
+      if (pin.text.isNotEmpty) {
+        await db.functions.invoke('set-customer-pin', body: {'customer_id': id, 'pin': pin.text});
+      }
       if (mounted) context.pop();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      if (mounted) msg('$e');
     }
   }
 
@@ -44,6 +59,7 @@ class _FState extends State<CustomerForm> {
         body: ListView(padding: const EdgeInsets.all(16), children: [
           f('Name', name), f('Phone (10 digits)', phone, TextInputType.phone), f('Address', addr),
           f('Daily litres', qty, TextInputType.number), f('Rate per litre (₹)', rate, TextInputType.number),
+          f(widget.c == null ? 'Login PIN (6 digits)' : 'New login PIN (leave blank to keep)', pin, TextInputType.number),
           FilledButton(onPressed: save, child: const Text('Save')),
         ]),
       );
